@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { db } from '@/lib/db';
-import { deriveKey, hashPassword, generateSaltHex, hexToBuffer, bufferToHex } from '@/lib/crypto';
+import { deriveKey, hashPassword, generateSaltHex, hexToBuffer } from '@/lib/crypto';
 import type { AuthData, SetupData } from '@/types';
 
 interface AuthStore {
