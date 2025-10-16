@@ -110,3 +110,4 @@ out/
 
 # Keep the node_modules vendored in case of airtight builds (comment out if needed)
 # node_modules/
+generate-icons.js

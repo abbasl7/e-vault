@@ -27,10 +27,22 @@ const updateSW = registerSW({
 
 // Handle install prompt for PWA
 let deferredPrompt: any;
+let promptShown = false;
+
 window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
+  // Store the event for manual triggering via install button
   deferredPrompt = e;
-  // Expose globally so you can trigger it from UI (e.g., Settings page "Install App" button)
+  
+  // Allow the browser to show its native install prompt on first visit
+  // Prevent default on subsequent visits to avoid prompt fatigue
+  if (promptShown) {
+    e.preventDefault();
+  } else {
+    promptShown = true;
+    // Let browser show the prompt automatically
+  }
+  
+  // Expose globally so users can also trigger it manually from UI (e.g., Dashboard "Install App" button)
   (window as any).__installApp = () => {
     if (deferredPrompt) {
       deferredPrompt.prompt();
