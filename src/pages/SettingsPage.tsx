@@ -162,7 +162,7 @@ export default function SettingsPage() {
 
         {/* Change Password Dialog */}
         <Dialog open={isChangePasswordOpen} onOpenChange={setIsChangePasswordOpen}>
-          <DialogContent>
+          <DialogContent className="bg-card text-card-foreground rounded-lg shadow-lg">
             <DialogHeader>
               <DialogTitle>Change Password</DialogTitle>
               <DialogDescription>Enter your current password and choose a new one.</DialogDescription>

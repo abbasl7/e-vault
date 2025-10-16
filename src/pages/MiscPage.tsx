@@ -6,13 +6,16 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, Plus, Search, Eye, EyeOff, Copy, Edit2, Trash2, FolderCog } from 'lucide-react';
+import { ArrowLeft, Plus, Search, Eye, EyeOff, Copy, Edit2, Trash2, FolderCog, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMiscStore } from '@/store/miscStore';
 import { MiscRecord, DocumentAttachment } from '@/types';
 import { toast } from '@/components/ui/use-toast';
 import { formatDate, maskCardNumber } from '@/lib/utils';
 import { FileUploader } from '@/components/FileUploader';
+import { useAuthStore } from '@/store/authStore';
+import { decryptFile } from '@/lib/crypto';
+import { DocumentPreviewModal } from '@/components/DocumentPreviewModal';
 
 export default function MiscPage() {
   const navigate = useNavigate();
@@ -23,6 +26,8 @@ export default function MiscPage() {
   const [selectedMisc, setSelectedMisc] = useState<MiscRecord | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSensitiveData, setShowSensitiveData] = useState<Record<string, boolean>>({});
+  const [previewDocument, setPreviewDocument] = useState<DocumentAttachment | null>(null);
+  const encryptionKey = useAuthStore((s) => s.encryptionKey);
   const [formData, setFormData] = useState({ title: '', type: '', content: '', url: '', username: '', password: '', notes: '', documents: [] as DocumentAttachment[] });
 
   useEffect(() => { fetchMisc(); }, [fetchMisc]);
@@ -79,9 +84,9 @@ export default function MiscPage() {
     <div className="min-h-screen p-4 md:p-8">
       <div className="max-w-6xl mx-auto">
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-          <Button variant="ghost" onClick={() => navigate('/')} className="mb-4 text-white hover:bg-white/10"><ArrowLeft className="w-4 h-4 mr-2" />Back</Button>
+          <Button variant="ghost" onClick={() => navigate('/')} className="mb-4 text-foreground hover:bg-accent"><ArrowLeft className="w-4 h-4 mr-2" />Back</Button>
           <div className="flex items-center justify-between flex-wrap gap-4">
-            <div><h1 className="text-4xl font-bold text-white mb-2 flex items-center gap-3"><FolderCog className="w-10 h-10 text-primary" />Miscellaneous</h1><p className="text-gray-400">Manage other documents & credentials</p></div>
+            <div><h1 className="text-4xl font-bold text-foreground mb-2 flex items-center gap-3"><FolderCog className="w-10 h-10 text-primary" />Miscellaneous</h1><p className="text-muted-foreground">Manage other documents & credentials</p></div>
             <Button onClick={() => { resetForm(); setIsAddDialogOpen(true); }} size="lg" className="gap-2"><Plus className="w-5 h-5" />Add Record</Button>
           </div>
         </motion.div>
@@ -110,16 +115,47 @@ export default function MiscPage() {
                       </div>
                     </CardHeader>
                     <CardContent className="grid gap-4">
-                      <div className="space-y-1"><Label className="text-xs text-gray-500">Content</Label><div className="flex items-center gap-2"><span className="text-white font-mono break-all">{maskValue(misc.content, showSensitiveData[`${misc.id}-content`])}</span><Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => toggleSensitiveData(misc.id!, 'content')}>{showSensitiveData[`${misc.id}-content`] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}</Button><Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(misc.content, 'Content')}><Copy className="w-3 h-3" /></Button></div></div>
-                      {misc.url && <div className="space-y-1"><Label className="text-xs text-gray-500">URL</Label><a href={misc.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline break-all">{misc.url}</a></div>}
+                      <div className="space-y-1"><Label className="text-xs text-muted-foreground">Content</Label><div className="flex items-center gap-2"><span className="text-foreground font-mono break-all">{maskValue(misc.content, showSensitiveData[`${misc.id}-content`])}</span><Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => toggleSensitiveData(misc.id!, 'content')}>{showSensitiveData[`${misc.id}-content`] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}</Button><Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(misc.content, 'Content')}><Copy className="w-3 h-3" /></Button></div></div>
+                      {misc.url && <div className="space-y-1"><Label className="text-xs text-muted-foreground">URL</Label><a href={misc.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline break-all">{misc.url}</a></div>}
                       {misc.username && (
-                        <div className="grid md:grid-cols-2 gap-4 pt-2 border-t border-white/10">
-                          <div className="space-y-1"><Label className="text-xs text-gray-500">Username</Label><div className="flex items-center gap-2"><span className="text-white font-mono">{maskValue(misc.username, showSensitiveData[`${misc.id}-username`])}</span><Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => toggleSensitiveData(misc.id!, 'username')}>{showSensitiveData[`${misc.id}-username`] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}</Button><Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(misc.username, 'Username')}><Copy className="w-3 h-3" /></Button></div></div>
-                          {misc.password && <div className="space-y-1"><Label className="text-xs text-gray-500">Password</Label><div className="flex items-center gap-2"><span className="text-white font-mono">{maskValue(misc.password, showSensitiveData[`${misc.id}-password`])}</span><Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => toggleSensitiveData(misc.id!, 'password')}>{showSensitiveData[`${misc.id}-password`] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}</Button><Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(misc.password, 'Password')}><Copy className="w-3 h-3" /></Button></div></div>}
+                        <div className="grid md:grid-cols-2 gap-4 pt-2 border-t border-border">
+                          <div className="space-y-1"><Label className="text-xs text-muted-foreground">Username</Label><div className="flex items-center gap-2"><span className="text-foreground font-mono">{maskValue(misc.username, showSensitiveData[`${misc.id}-username`])}</span><Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => toggleSensitiveData(misc.id!, 'username')}>{showSensitiveData[`${misc.id}-username`] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}</Button><Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(misc.username, 'Username')}><Copy className="w-3 h-3" /></Button></div></div>
+                          {misc.password && <div className="space-y-1"><Label className="text-xs text-muted-foreground">Password</Label><div className="flex items-center gap-2"><span className="text-foreground font-mono">{maskValue(misc.password, showSensitiveData[`${misc.id}-password`])}</span><Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => toggleSensitiveData(misc.id!, 'password')}>{showSensitiveData[`${misc.id}-password`] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}</Button><Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(misc.password, 'Password')}><Copy className="w-3 h-3" /></Button></div></div>}
                         </div>
                       )}
-                      {misc.notes && <div className="space-y-1 mt-2 pt-2 border-t border-white/10"><Label className="text-xs text-gray-500">Notes</Label><p className="text-sm text-gray-300">{misc.notes}</p></div>}
-                      <div className="text-xs text-gray-500 flex gap-4"><span>Created: {formatDate(misc.createdAt)}</span><span>Updated: {formatDate(misc.updatedAt)}</span></div>
+                      {misc.notes && <div className="space-y-1 mt-2 pt-2 border-t border-border"><Label className="text-xs text-muted-foreground">Notes</Label><p className="text-sm text-muted-foreground">{misc.notes}</p></div>}
+                      {misc.documents && misc.documents.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-border">
+                          <Label className="text-xs text-muted-foreground">Attachments</Label>
+                          <div className="flex items-center gap-2 mt-2 flex-wrap">
+                            {misc.documents.map((doc) => (
+                              <div key={doc.id} className="bg-card p-2 rounded flex items-center gap-2 border border-border">
+                                <span className="text-sm text-foreground truncate max-w-[160px]">{doc.name}</span>
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setPreviewDocument(doc)}><Eye className="w-4 h-4" /></Button>
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={async () => {
+                                  try {
+                                    const encKey = useAuthStore.getState().encryptionKey;
+                                    if (!encKey) throw new Error('No encryption key');
+                                    const blob = await decryptFile(doc.encrypted, encKey, doc.type);
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = doc.name;
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    document.body.removeChild(a);
+                                    URL.revokeObjectURL(url);
+                                  } catch (err) {
+                                    console.error('Download error', err);
+                                    alert('Failed to download attachment');
+                                  }
+                                }}><Download className="w-4 h-4" /></Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      <div className="text-xs text-muted-foreground flex gap-4"><span>Created: {formatDate(misc.createdAt)}</span><span>Updated: {formatDate(misc.updatedAt)}</span></div>
                     </CardContent>
                   </Card>
                 </motion.div>
@@ -129,7 +165,7 @@ export default function MiscPage() {
         )}
 
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-card text-card-foreground rounded-lg shadow-lg">
             <DialogHeader><DialogTitle>Add Miscellaneous Record</DialogTitle><DialogDescription>Store any other important information.</DialogDescription></DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid md:grid-cols-2 gap-4">
@@ -153,7 +189,7 @@ export default function MiscPage() {
         </Dialog>
 
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-card text-card-foreground rounded-lg shadow-lg">
             <DialogHeader><DialogTitle>Edit Record</DialogTitle><DialogDescription>Update record details.</DialogDescription></DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid md:grid-cols-2 gap-4">
@@ -177,7 +213,7 @@ export default function MiscPage() {
         </Dialog>
 
         <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-          <DialogContent>
+          <DialogContent className="bg-card text-card-foreground rounded-lg shadow-lg">
             <DialogHeader><DialogTitle>Delete Record</DialogTitle><DialogDescription>Are you sure? This cannot be undone.</DialogDescription></DialogHeader>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>Cancel</Button>
@@ -185,6 +221,13 @@ export default function MiscPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <DocumentPreviewModal
+          document={previewDocument}
+          isOpen={!!previewDocument}
+          onClose={() => setPreviewDocument(null)}
+          encryptionKey={encryptionKey}
+        />
       </div>
     </div>
   );

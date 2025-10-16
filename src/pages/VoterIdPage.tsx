@@ -79,9 +79,9 @@ export default function VoterIdPage() {
     <div className="min-h-screen p-4 md:p-8">
       <div className="max-w-6xl mx-auto">
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-          <Button variant="ghost" onClick={() => navigate('/')} className="mb-4 text-white hover:bg-white/10"><ArrowLeft className="w-4 h-4 mr-2" />Back</Button>
+          <Button variant="ghost" onClick={() => navigate('/')} className="mb-4 text-foreground hover:bg-white/10"><ArrowLeft className="w-4 h-4 mr-2" />Back</Button>
           <div className="flex items-center justify-between flex-wrap gap-4">
-            <div><h1 className="text-4xl font-bold text-white mb-2 flex items-center gap-3"><Vote className="w-10 h-10 text-primary" />Voter IDs</h1><p className="text-gray-400">Manage voter ID cards</p></div>
+            <div><h1 className="text-4xl font-bold text-foreground mb-2 flex items-center gap-3"><Vote className="w-10 h-10 text-primary" />Voter IDs</h1><p className="text-muted-foreground">Manage voter ID cards</p></div>
             <Button onClick={() => { resetForm(); setIsAddDialogOpen(true); }} size="lg" className="gap-2"><Plus className="w-5 h-5" />Add Voter ID</Button>
           </div>
         </motion.div>
@@ -125,7 +125,7 @@ export default function VoterIdPage() {
         )}
 
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl bg-card text-card-foreground rounded-lg shadow-lg">
             <DialogHeader><DialogTitle>Add Voter ID</DialogTitle><DialogDescription>Enter voter ID details.</DialogDescription></DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid md:grid-cols-2 gap-4">
@@ -148,7 +148,7 @@ export default function VoterIdPage() {
         </Dialog>
 
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl bg-card text-card-foreground rounded-lg shadow-lg">
             <DialogHeader><DialogTitle>Edit Voter ID</DialogTitle><DialogDescription>Update voter ID details.</DialogDescription></DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid md:grid-cols-2 gap-4">
@@ -171,7 +171,7 @@ export default function VoterIdPage() {
         </Dialog>
 
         <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-          <DialogContent>
+          <DialogContent className="bg-card text-card-foreground rounded-lg shadow-lg">
             <DialogHeader><DialogTitle>Delete Voter ID</DialogTitle><DialogDescription>Are you sure? This cannot be undone.</DialogDescription></DialogHeader>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>Cancel</Button>

@@ -1,8 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
+import { useTheme } from '@/context/ThemeContext';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
+import { useBankStore } from '@/store/bankStore';
+import { useCardStore } from '@/store/cardStore';
+import { usePolicyStore } from '@/store/policyStore';
+import { useAadharStore } from '@/store/aadharStore';
+import { usePanStore } from '@/store/panStore';
+import { useLicenseStore } from '@/store/licenseStore';
+import { useVoterIdStore } from '@/store/voterIdStore';
+import { useMiscStore } from '@/store/miscStore';
 import {
   CreditCard,
   Landmark,
@@ -15,6 +24,8 @@ import {
   Files,
   LogOut,
   Settings,
+  Moon,
+  Sun,
 } from 'lucide-react';
 
 const categories = [
@@ -26,16 +37,64 @@ const categories = [
   { id: 'license', name: 'License', icon: CarFront, color: 'bg-[#7B1FA2]', route: '/license' },
   { id: 'voterid', name: 'Voter ID', icon: Vote, color: 'bg-[#455A64]', route: '/voterid' },
   { id: 'misc', name: 'Misc', icon: FolderOpen, color: 'bg-[#546E7A]', route: '/misc' },
-  { id: 'documents', name: 'All Documents', icon: Files, color: 'bg-gradient-to-br from-purple-500 to-pink-500', route: '/documents' },
 ];
 
 export default function DashboardPage() {
   const { username, logout } = useAuthStore();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
+  const [installAvailable, setInstallAvailable] = useState<boolean>(false);
+
+  // Reactive counts using store hooks
+  const banksCount = useBankStore((s) => s.banks.length);
+  const cardsCount = useCardStore((s) => s.cards.length);
+  const policiesCount = usePolicyStore((s) => s.policies.length);
+  const aadharCount = useAadharStore((s) => s.aadhars.length);
+  const panCount = usePanStore((s) => s.pans.length);
+  const licenseCount = useLicenseStore((s) => s.licenses.length);
+  const voteridCount = useVoterIdStore((s) => s.voterIds.length);
+  const miscCount = useMiscStore((s) => s.misc.length);
 
   useEffect(() => {
-    // You could load category counts here from the database
+    // Fetch stores once on mount so they populate their state
+    (async () => {
+      try {
+        const bankStore = (await import('@/store/bankStore')).useBankStore;
+        const cardStore = (await import('@/store/cardStore')).useCardStore;
+        const policyStore = (await import('@/store/policyStore')).usePolicyStore;
+        const aadharStore = (await import('@/store/aadharStore')).useAadharStore;
+        const panStore = (await import('@/store/panStore')).usePanStore;
+        const licenseStore = (await import('@/store/licenseStore')).useLicenseStore;
+        const voterStore = (await import('@/store/voterIdStore')).useVoterIdStore;
+        const miscStore = (await import('@/store/miscStore')).useMiscStore;
+
+        await Promise.all([
+          bankStore.getState().fetchBanks(),
+          cardStore.getState().fetchCards(),
+          policyStore.getState().fetchPolicies(),
+          aadharStore.getState().fetchAadhars(),
+          panStore.getState().fetchPans(),
+          licenseStore.getState().fetchLicenses(),
+          voterStore.getState().fetchVoterIds(),
+          miscStore.getState().fetchMisc(),
+        ]);
+      } catch (err) {
+        console.error('Failed to initialize stores', err);
+      }
+    })();
+
+    // Listen for beforeinstallprompt so we can show install button
+    const onBefore = (e: any) => {
+      e.preventDefault();
+      (window as any).__deferredPrompt = e;
+      setInstallAvailable(true);
+    };
+    window.addEventListener('beforeinstallprompt', onBefore as EventListener);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onBefore as EventListener);
+    };
   }, []);
 
   const handleLogout = () => {
@@ -52,16 +111,26 @@ export default function DashboardPage() {
           animate={{ opacity: 1, y: 0 }}
           className="mb-8"
         >
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-4xl font-bold text-white mb-2">
-                Welcome back, {username}!
-              </h1>
-              <p className="text-gray-400">
-                Your secure vault is ready
-              </p>
+          <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+            <div className="flex items-center gap-4">
+              <div className="rounded-md p-2 bg-primary/10 flex items-center justify-center">
+                <img src="/eternalvault-logo.svg" alt="EternalVault" className="w-9 h-9" />
+              </div>
+              <div>
+                <h1 className="text-2xl md:text-4xl font-bold text-foreground">EternalVault</h1>
+                <p className="text-muted-foreground">Welcome back, {username}!</p>
+              </div>
             </div>
-            <div className="flex gap-3">
+            <div className="flex gap-3 items-center">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={toggleTheme}
+                className="glass border-white/20"
+                title="Toggle theme"
+              >
+                {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              </Button>
               <Button
                 variant="outline"
                 size="icon"
@@ -71,12 +140,43 @@ export default function DashboardPage() {
                 <Settings className="w-5 h-5" />
               </Button>
               <Button
-                variant="destructive"
-                onClick={handleLogout}
-                className="gap-2"
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate('/documents')}
+                className="glass border-white/10"
+                title="All Documents"
               >
-                <LogOut className="w-4 h-4" />
-                Logout
+                <Files className="w-5 h-5" />
+              </Button>
+              {installAvailable && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    const p = (window as any).__deferredPrompt;
+                    if (p) {
+                      p.prompt();
+                      p.userChoice.then((choice: any) => {
+                        if (choice.outcome === 'accepted') console.log('User accepted install');
+                      });
+                    } else if ((window as any).__installApp) {
+                      (window as any).__installApp();
+                    }
+                  }}
+                  className="glass border-white/10"
+                  title="Install App"
+                >
+                  <FolderOpen className="w-5 h-5" />
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                onClick={handleLogout}
+                size="icon"
+                title="Logout"
+                className="text-destructive"
+              >
+                <LogOut className="w-5 h-5" />
               </Button>
             </div>
           </div>
@@ -124,12 +224,12 @@ export default function DashboardPage() {
                       } : {}}
                       transition={{ duration: 0.5 }}
                     >
-                      <Icon className="w-12 h-12 md:w-16 md:h-16 text-white mb-3 md:mb-4" />
+                      <Icon className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 text-foreground mb-2 sm:mb-3 md:mb-4" />
                     </motion.div>
-                    <h3 className="text-white font-bold text-lg md:text-xl text-center">
+                    <h3 className="text-foreground font-bold text-md sm:text-lg md:text-xl text-center">
                       {category.name}
                     </h3>
-                    <p className="text-white/80 text-sm mt-2">0 items</p>
+                    <p className="text-muted-foreground text-xs sm:text-sm mt-2">{(category.id === 'banks' ? banksCount : category.id === 'cards' ? cardsCount : category.id === 'policies' ? policiesCount : category.id === 'aadhar' ? aadharCount : category.id === 'pan' ? panCount : category.id === 'license' ? licenseCount : category.id === 'voterid' ? voteridCount : category.id === 'misc' ? miscCount : 0)} item{(category.id === 'banks' ? banksCount : category.id === 'cards' ? cardsCount : category.id === 'policies' ? policiesCount : category.id === 'aadhar' ? aadharCount : category.id === 'pan' ? panCount : category.id === 'license' ? licenseCount : category.id === 'voterid' ? voteridCount : category.id === 'misc' ? miscCount : 0) !== 1 ? 's' : ''}</p>
                   </div>
 
                   {/* Shine effect */}
@@ -149,11 +249,11 @@ export default function DashboardPage() {
           transition={{ delay: 0.5 }}
           className="mt-12 text-center"
         >
-          <p className="text-gray-500 text-sm">
+          <p className="text-muted-foreground text-sm">
             All your data is encrypted and stored locally on this device
           </p>
-          <p className="text-gray-600 text-xs mt-2">
-            SecureVault PWA • Offline-First • Zero-Knowledge
+          <p className="text-muted-foreground/70 text-xs mt-2">
+            EternalVault • Offline-First • Zero-Knowledge
           </p>
         </motion.div>
       </div>

@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import './styles/globals.css';
 import { registerSW } from 'virtual:pwa-register';
+import { ThemeProvider } from './context/ThemeContext';
 
 // Register service worker with auto-update
 const updateSW = registerSW({
@@ -51,6 +52,8 @@ window.addEventListener('appinstalled', () => {
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <App />
+    <ThemeProvider>
+      <App />
+    </ThemeProvider>
   </React.StrictMode>
 );

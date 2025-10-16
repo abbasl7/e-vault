@@ -79,15 +79,15 @@ export default function LicensePage() {
     <div className="min-h-screen p-4 md:p-8">
       <div className="max-w-6xl mx-auto">
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-          <Button variant="ghost" onClick={() => navigate('/')} className="mb-4 text-white hover:bg-white/10"><ArrowLeft className="w-4 h-4 mr-2" />Back</Button>
+          <Button variant="ghost" onClick={() => navigate('/')} className="mb-4 text-foreground hover:bg-white/10"><ArrowLeft className="w-4 h-4 mr-2" />Back</Button>
           <div className="flex items-center justify-between flex-wrap gap-4">
-            <div><h1 className="text-4xl font-bold text-white mb-2 flex items-center gap-3"><Car className="w-10 h-10 text-primary" />Driving Licenses</h1><p className="text-gray-400">Manage driving license details</p></div>
+            <div><h1 className="text-4xl font-bold text-foreground mb-2 flex items-center gap-3"><Car className="w-10 h-10 text-primary" />Driving Licenses</h1><p className="text-muted-foreground">Manage driving license details</p></div>
             <Button onClick={() => { resetForm(); setIsAddDialogOpen(true); }} size="lg" className="gap-2"><Plus className="w-5 h-5" />Add License</Button>
           </div>
         </motion.div>
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mb-6">
-          <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" /><Input placeholder="Search..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" /></div>
+          <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" /><Input placeholder="Search..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" /></div>
         </motion.div>
 
         {isLoading ? (
@@ -111,10 +111,10 @@ export default function LicensePage() {
                     </CardHeader>
                     <CardContent className="grid gap-4">
                       <div className="grid md:grid-cols-2 gap-4">
-                        <div className="space-y-1"><Label className="text-xs text-gray-500">License Number</Label><div className="flex items-center gap-2"><span className="text-white font-mono">{maskValue(license.licenseNumber, showSensitiveData[`${license.id}-licenseNumber`])}</span><Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => toggleSensitiveData(license.id!, 'licenseNumber')}>{showSensitiveData[`${license.id}-licenseNumber`] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}</Button><Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(license.licenseNumber, 'License number')}><Copy className="w-3 h-3" /></Button></div></div>
-                        <div className="space-y-1"><Label className="text-xs text-gray-500">Vehicle Classes</Label><span className="text-white block">{license.vehicleClasses}</span></div>
-                        <div className="space-y-1"><Label className="text-xs text-gray-500">Date of Issue</Label><span className="text-white block">{license.dateOfIssue}</span></div>
-                        <div className="space-y-1"><Label className="text-xs text-gray-500">Valid Till</Label><span className="text-white block">{license.validTill}</span></div>
+                        <div className="space-y-1"><Label className="text-xs text-gray-500">License Number</Label><div className="flex items-center gap-2"><span className="text-foreground font-mono">{maskValue(license.licenseNumber, showSensitiveData[`${license.id}-licenseNumber`])}</span><Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => toggleSensitiveData(license.id!, 'licenseNumber')}>{showSensitiveData[`${license.id}-licenseNumber`] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}</Button><Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(license.licenseNumber, 'License number')}><Copy className="w-3 h-3" /></Button></div></div>
+                                                <div className="space-y-1"><Label className="text-xs text-gray-500">Vehicle Classes</Label><span className="text-foreground block">{license.vehicleClasses}</span></div>
+                                                <div className="space-y-1"><Label className="text-xs text-gray-500">Date of Issue</Label><span className="text-foreground block">{license.dateOfIssue}</span></div>
+                                                <div className="space-y-1"><Label className="text-xs text-gray-500">Valid Till</Label><span className="text-foreground block">{license.validTill}</span></div>
                       </div>
                       {license.notes && <div className="space-y-1 mt-2 pt-2 border-t border-white/10"><Label className="text-xs text-gray-500">Notes</Label><p className="text-sm text-gray-300">{license.notes}</p></div>}
                       <div className="text-xs text-gray-500 flex gap-4"><span>Created: {formatDate(license.createdAt)}</span><span>Updated: {formatDate(license.updatedAt)}</span></div>
@@ -127,7 +127,7 @@ export default function LicensePage() {
         )}
 
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-card text-card-foreground rounded-lg shadow-lg">
             <DialogHeader><DialogTitle>Add Driving License</DialogTitle><DialogDescription>Enter license details.</DialogDescription></DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid md:grid-cols-2 gap-4">
@@ -151,7 +151,7 @@ export default function LicensePage() {
         </Dialog>
 
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-card text-card-foreground rounded-lg shadow-lg">
             <DialogHeader><DialogTitle>Edit License</DialogTitle><DialogDescription>Update license details.</DialogDescription></DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid md:grid-cols-2 gap-4">
@@ -175,7 +175,7 @@ export default function LicensePage() {
         </Dialog>
 
         <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-          <DialogContent>
+          <DialogContent className="bg-card text-card-foreground rounded-lg shadow-lg">
             <DialogHeader><DialogTitle>Delete License</DialogTitle><DialogDescription>Are you sure? This cannot be undone.</DialogDescription></DialogHeader>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>Cancel</Button>

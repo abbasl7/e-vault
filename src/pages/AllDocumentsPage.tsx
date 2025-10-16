@@ -233,24 +233,24 @@ export default function AllDocumentsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-gray-900 dark:bg-gray-950">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <div className="bg-gray-800 dark:bg-gray-800 border-b border-gray-700 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => navigate('/dashboard')}
+                onClick={() => navigate('/')}
               >
                 <ArrowLeft className="h-5 w-5" />
               </Button>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                <h1 className="text-2xl font-bold text-white dark:text-white">
                   All Documents
                 </h1>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm text-gray-400 dark:text-gray-400">
                   {filteredDocuments.length} document{filteredDocuments.length !== 1 ? 's' : ''} across all categories
                 </p>
               </div>
@@ -266,7 +266,7 @@ export default function AllDocumentsPage() {
                 placeholder="Search documents by name, category, or record..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
+                className="pl-10 bg-gray-700 dark:bg-gray-700 border-gray-600 dark:border-gray-600 text-white dark:text-white placeholder-gray-400"
               />
             </div>
           </div>
@@ -281,11 +281,11 @@ export default function AllDocumentsPage() {
             animate={{ opacity: 1, y: 0 }}
             className="text-center py-12"
           >
-            <FileText className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+            <FileText className="h-16 w-16 text-gray-600 dark:text-gray-600 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-white dark:text-white mb-2">
               {searchQuery ? 'No documents found' : 'No documents uploaded yet'}
             </h3>
-            <p className="text-gray-600 dark:text-gray-400">
+            <p className="text-gray-400 dark:text-gray-400">
               {searchQuery
                 ? 'Try adjusting your search query'
                 : 'Upload documents to your records to see them here'}
@@ -301,10 +301,10 @@ export default function AllDocumentsPage() {
                 className="space-y-4"
               >
                 <div className="flex items-center gap-3">
-                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                  <h2 className="text-xl font-semibold text-white dark:text-white">
                     {category}
                   </h2>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200">{docs.length}</span>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-700 dark:bg-gray-700 text-gray-200 dark:text-gray-200">{docs.length}</span>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -313,17 +313,17 @@ export default function AllDocumentsPage() {
                       key={doc.id}
                       initial={{ opacity: 0, scale: 0.95 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 hover:shadow-lg transition-shadow"
+                      className="bg-gray-800 dark:bg-gray-800 rounded-lg border border-gray-700 dark:border-gray-700 p-4 hover:shadow-lg transition-shadow"
                     >
                       {/* Document Header */}
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <FileText className="h-5 w-5 text-gray-400 flex-shrink-0" />
+                          <FileText className="h-5 w-5 text-gray-500 dark:text-gray-500 flex-shrink-0" />
                           <div className="min-w-0 flex-1">
-                            <p className="font-medium text-gray-900 dark:text-white truncate">
+                            <p className="font-medium text-gray-100 dark:text-gray-100 truncate">
                               {doc.name}
                             </p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                            <p className="text-xs text-gray-500 dark:text-gray-500">
                               {formatFileSize(doc.size)} • {formatDate(doc.uploadedAt)}
                             </p>
                           </div>
@@ -331,11 +331,11 @@ export default function AllDocumentsPage() {
                       </div>
 
                       {/* Record Info */}
-                      <div className="mb-3 p-2 bg-gray-50 dark:bg-gray-700/50 rounded">
+                      <div className="mb-3 p-2 bg-gray-700 dark:bg-gray-700 rounded">
                         <div className="flex items-center justify-between">
                           <div className="min-w-0 flex-1">
-                            <p className="text-xs text-gray-500 dark:text-gray-400">Record</p>
-                            <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                            <p className="text-xs text-gray-400 dark:text-gray-400">Record</p>
+                            <p className="text-sm font-medium text-gray-100 dark:text-gray-100 truncate">
                               {doc.recordName}
                             </p>
                           </div>
@@ -382,7 +382,7 @@ export default function AllDocumentsPage() {
 
       {/* Preview Dialog */}
       <Dialog open={!!previewDocument} onOpenChange={() => setPreviewDocument(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+  <DialogContent className="max-w-4xl max-h-[90vh] p-0 bg-card text-card-foreground rounded-lg shadow-lg">
           {previewDocument && (
             <DocumentPreview
               document={previewDocument}
@@ -390,7 +390,7 @@ export default function AllDocumentsPage() {
               onLoad={() => setIsPreviewLoading(false)}
             />
           )}
-        </DialogContent>
+  </DialogContent>
       </Dialog>
     </div>
   );

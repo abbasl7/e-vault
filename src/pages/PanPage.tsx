@@ -6,13 +6,16 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, Plus, Search, Eye, EyeOff, Copy, Edit2, Trash2, CreditCard as CardIcon } from 'lucide-react';
+import { ArrowLeft, Plus, Search, Eye, EyeOff, Copy, Edit2, Trash2, CreditCard as CardIcon, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePanStore } from '@/store/panStore';
 import { PanRecord, DocumentAttachment } from '@/types';
 import { toast } from '@/components/ui/use-toast';
 import { formatDate, maskCardNumber } from '@/lib/utils';
 import { FileUploader } from '@/components/FileUploader';
+import { useAuthStore } from '@/store/authStore';
+import { decryptFile } from '@/lib/crypto';
+import { DocumentPreviewModal } from '@/components/DocumentPreviewModal';
 
 export default function PanPage() {
   const navigate = useNavigate();
@@ -23,6 +26,8 @@ export default function PanPage() {
   const [selectedPan, setSelectedPan] = useState<PanRecord | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSensitiveData, setShowSensitiveData] = useState<Record<string, boolean>>({});
+  const [previewDocument, setPreviewDocument] = useState<DocumentAttachment | null>(null);
+  const encryptionKey = useAuthStore((s) => s.encryptionKey);
   const [formData, setFormData] = useState({ panNumber: '', name: '', dateOfBirth: '', fatherName: '', notes: '', documents: [] as DocumentAttachment[] });
 
   useEffect(() => { fetchPans(); }, [fetchPans]);
@@ -79,9 +84,9 @@ export default function PanPage() {
     <div className="min-h-screen p-4 md:p-8">
       <div className="max-w-6xl mx-auto">
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-          <Button variant="ghost" onClick={() => navigate('/')} className="mb-4 text-white hover:bg-white/10"><ArrowLeft className="w-4 h-4 mr-2" />Back</Button>
+          <Button variant="ghost" onClick={() => navigate('/')} className="mb-4 text-foreground hover:bg-accent"><ArrowLeft className="w-4 h-4 mr-2" />Back</Button>
           <div className="flex items-center justify-between flex-wrap gap-4">
-            <div><h1 className="text-4xl font-bold text-white mb-2 flex items-center gap-3"><CardIcon className="w-10 h-10 text-primary" />PAN Cards</h1><p className="text-gray-400">Manage PAN card details</p></div>
+            <div><h1 className="text-4xl font-bold text-foreground mb-2 flex items-center gap-3"><CardIcon className="w-10 h-10 text-primary" />PAN Cards</h1><p className="text-muted-foreground">Manage PAN card details</p></div>
             <Button onClick={() => { resetForm(); setIsAddDialogOpen(true); }} size="lg" className="gap-2"><Plus className="w-5 h-5" />Add PAN</Button>
           </div>
         </motion.div>
@@ -111,11 +116,42 @@ export default function PanPage() {
                     </CardHeader>
                     <CardContent className="grid gap-4">
                       <div className="grid md:grid-cols-2 gap-4">
-                        <div className="space-y-1"><Label className="text-xs text-gray-500">PAN Number</Label><div className="flex items-center gap-2"><span className="text-white font-mono">{maskValue(pan.panNumber, showSensitiveData[`${pan.id}-panNumber`])}</span><Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => toggleSensitiveData(pan.id!, 'panNumber')}>{showSensitiveData[`${pan.id}-panNumber`] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}</Button><Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(pan.panNumber, 'PAN number')}><Copy className="w-3 h-3" /></Button></div></div>
-                        <div className="space-y-1"><Label className="text-xs text-gray-500">Date of Birth</Label><span className="text-white block">{pan.dateOfBirth}</span></div>
+                        <div className="space-y-1"><Label className="text-xs text-muted-foreground">PAN Number</Label><div className="flex items-center gap-2"><span className="text-foreground font-mono">{maskValue(pan.panNumber, showSensitiveData[`${pan.id}-panNumber`])}</span><Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => toggleSensitiveData(pan.id!, 'panNumber')}>{showSensitiveData[`${pan.id}-panNumber`] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}</Button><Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(pan.panNumber, 'PAN number')}><Copy className="w-3 h-3" /></Button></div></div>
+                        <div className="space-y-1"><Label className="text-xs text-muted-foreground">Date of Birth</Label><span className="text-foreground block">{pan.dateOfBirth}</span></div>
                       </div>
-                      {pan.notes && <div className="space-y-1 mt-2 pt-2 border-t border-white/10"><Label className="text-xs text-gray-500">Notes</Label><p className="text-sm text-gray-300">{pan.notes}</p></div>}
-                      <div className="text-xs text-gray-500 flex gap-4"><span>Created: {formatDate(pan.createdAt)}</span><span>Updated: {formatDate(pan.updatedAt)}</span></div>
+                      {pan.notes && <div className="space-y-1 mt-2 pt-2 border-t border-border"><Label className="text-xs text-muted-foreground">Notes</Label><p className="text-sm text-muted-foreground">{pan.notes}</p></div>}
+                      {pan.documents && pan.documents.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-border">
+                          <Label className="text-xs text-muted-foreground">Attachments</Label>
+                          <div className="flex items-center gap-2 mt-2 flex-wrap">
+                            {pan.documents.map((doc) => (
+                              <div key={doc.id} className="bg-card p-2 rounded flex items-center gap-2 border border-border">
+                                <span className="text-sm text-foreground truncate max-w-[160px]">{doc.name}</span>
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setPreviewDocument(doc)}><Eye className="w-4 h-4" /></Button>
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={async () => {
+                                  try {
+                                    const encKey = useAuthStore.getState().encryptionKey;
+                                    if (!encKey) throw new Error('No encryption key');
+                                    const blob = await decryptFile(doc.encrypted, encKey, doc.type);
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = doc.name;
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    document.body.removeChild(a);
+                                    URL.revokeObjectURL(url);
+                                  } catch (err) {
+                                    console.error('Download error', err);
+                                    alert('Failed to download attachment');
+                                  }
+                                }}><Download className="w-4 h-4" /></Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      <div className="text-xs text-muted-foreground flex gap-4"><span>Created: {formatDate(pan.createdAt)}</span><span>Updated: {formatDate(pan.updatedAt)}</span></div>
                     </CardContent>
                   </Card>
                 </motion.div>
@@ -173,6 +209,13 @@ export default function PanPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <DocumentPreviewModal
+          document={previewDocument}
+          isOpen={!!previewDocument}
+          onClose={() => setPreviewDocument(null)}
+          encryptionKey={encryptionKey}
+        />
       </div>
     </div>
   );

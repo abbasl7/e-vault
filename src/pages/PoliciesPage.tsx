@@ -6,13 +6,16 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, Plus, Search, Edit2, Trash2, Shield } from 'lucide-react';
+import { ArrowLeft, Plus, Search, Edit2, Trash2, Shield, Eye, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePolicyStore } from '@/store/policyStore';
 import { PolicyRecord, DocumentAttachment } from '@/types';
 import { toast } from '@/components/ui/use-toast';
 import { formatDate } from '@/lib/utils';
 import { FileUploader } from '@/components/FileUploader';
+import { useAuthStore } from '@/store/authStore';
+import { decryptFile } from '@/lib/crypto';
+import { DocumentPreviewModal } from '@/components/DocumentPreviewModal';
 
 export default function PoliciesPage() {
   const navigate = useNavigate();
@@ -23,6 +26,8 @@ export default function PoliciesPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedPolicy, setSelectedPolicy] = useState<PolicyRecord | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [previewDocument, setPreviewDocument] = useState<DocumentAttachment | null>(null);
+  const encryptionKey = useAuthStore((s) => s.encryptionKey);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -105,15 +110,15 @@ export default function PoliciesPage() {
     <div className="min-h-screen p-4 md:p-8">
       <div className="max-w-6xl mx-auto">
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-          <Button variant="ghost" onClick={() => navigate('/')} className="mb-4 text-white hover:bg-white/10">
+          <Button variant="ghost" onClick={() => navigate('/')} className="mb-4 text-foreground hover:bg-white/10">
             <ArrowLeft className="w-4 h-4 mr-2" />Back to Dashboard
           </Button>
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
-              <h1 className="text-4xl font-bold text-white mb-2 flex items-center gap-3">
+              <h1 className="text-4xl font-bold text-foreground mb-2 flex items-center gap-3">
                 <Shield className="w-10 h-10 text-primary" />Insurance Policies
               </h1>
-              <p className="text-gray-400">Manage your insurance policies</p>
+              <p className="text-muted-foreground">Manage your insurance policies</p>
             </div>
             <Button onClick={() => { resetForm(); setIsAddDialogOpen(true); }} size="lg" className="gap-2">
               <Plus className="w-5 h-5" />Add Policy
@@ -123,7 +128,7 @@ export default function PoliciesPage() {
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mb-6">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <Input placeholder="Search policies..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
           </div>
         </motion.div>
@@ -173,32 +178,67 @@ export default function PoliciesPage() {
                     <CardContent className="grid gap-4">
                       <div className="grid md:grid-cols-3 gap-4">
                         <div className="space-y-1">
-                          <Label className="text-xs text-gray-500">Policy Amount</Label>
-                          <span className="text-white block">₹{policy.amount}</span>
+                          <Label className="text-xs text-muted-foreground">Policy Amount</Label>
+                          <span className="text-foreground block">₹{policy.amount}</span>
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-xs text-gray-500">Premium Value</Label>
-                          <span className="text-white block">₹{policy.premiumValue}</span>
+                          <Label className="text-xs text-muted-foreground">Premium Value</Label>
+                          <span className="text-foreground block">₹{policy.premiumValue}</span>
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-xs text-gray-500">Maturity Value</Label>
-                          <span className="text-white block">₹{policy.maturityValue}</span>
+                          <Label className="text-xs text-muted-foreground">Maturity Value</Label>
+                          <span className="text-foreground block">₹{policy.maturityValue}</span>
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-xs text-gray-500">Next Premium Date</Label>
-                          <span className="text-white block">{policy.nextPremiumDate}</span>
+                          <Label className="text-xs text-muted-foreground">Next Premium Date</Label>
+                          <span className="text-foreground block">{policy.nextPremiumDate}</span>
                         </div>
                       </div>
                       {policy.notes && (
-                        <div className="space-y-1 mt-2 pt-2 border-t border-white/10">
-                          <Label className="text-xs text-gray-500">Notes</Label>
-                          <p className="text-sm text-gray-300">{policy.notes}</p>
+                        <div className="space-y-1 mt-2 pt-2 border-t border-border">
+                          <Label className="text-xs text-muted-foreground">Notes</Label>
+                          <p className="text-sm text-muted-foreground">{policy.notes}</p>
                         </div>
                       )}
-                      <div className="text-xs text-gray-500 flex gap-4">
+                      <div className="text-xs text-muted-foreground flex gap-4">
                         <span>Created: {formatDate(policy.createdAt)}</span>
                         <span>Updated: {formatDate(policy.updatedAt)}</span>
                       </div>
+                      {policy.documents && policy.documents.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-border">
+                          <Label className="text-xs text-muted-foreground">Attachments</Label>
+                          <div className="flex items-center gap-2 mt-2 flex-wrap">
+                            {policy.documents.map((doc) => (
+                              <div key={doc.id} className="bg-card p-2 rounded flex items-center gap-2 border border-border">
+                                <span className="text-sm text-foreground truncate max-w-[160px]">{doc.name}</span>
+                                <Button variant="ghost" size="icon" onClick={() => setPreviewDocument(doc)}>
+                                  <Eye className="w-4 h-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" onClick={async () => {
+                                  try {
+                                    const encKey = useAuthStore.getState().encryptionKey;
+                                    if (!encKey) throw new Error('No encryption key');
+                                    const blob = await decryptFile(doc.encrypted, encKey, doc.type);
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = doc.name;
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    document.body.removeChild(a);
+                                    URL.revokeObjectURL(url);
+                                  } catch (err) {
+                                    console.error('Download error', err);
+                                    alert('Failed to download attachment');
+                                  }
+                                }}>
+                                  <Download className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 </motion.div>
@@ -208,7 +248,7 @@ export default function PoliciesPage() {
         )}
 
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-card text-card-foreground rounded-lg shadow-lg">
             <DialogHeader>
               <DialogTitle>Add Insurance Policy</DialogTitle>
               <DialogDescription>Enter your policy details.</DialogDescription>
@@ -264,7 +304,7 @@ export default function PoliciesPage() {
         </Dialog>
 
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-card text-card-foreground rounded-lg shadow-lg">
             <DialogHeader>
               <DialogTitle>Edit Insurance Policy</DialogTitle>
               <DialogDescription>Update your policy details.</DialogDescription>
@@ -320,7 +360,7 @@ export default function PoliciesPage() {
         </Dialog>
 
         <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-          <DialogContent>
+          <DialogContent className="bg-card text-card-foreground rounded-lg shadow-lg">
             <DialogHeader>
               <DialogTitle>Delete Policy</DialogTitle>
               <DialogDescription>Are you sure you want to delete "{selectedPolicy?.name}"? This action cannot be undone.</DialogDescription>
@@ -331,6 +371,13 @@ export default function PoliciesPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <DocumentPreviewModal
+          document={previewDocument}
+          isOpen={!!previewDocument}
+          onClose={() => setPreviewDocument(null)}
+          encryptionKey={encryptionKey}
+        />
       </div>
     </div>
   );

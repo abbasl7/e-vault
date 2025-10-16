@@ -7,7 +7,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Plus, Search, Eye, EyeOff, Copy, Edit2, Trash2, CreditCard } from 'lucide-react';
+import { ArrowLeft, Plus, Search, Eye, EyeOff, Copy, Edit2, Trash2, CreditCard, Download } from 'lucide-react';
+import { useAuthStore } from '@/store/authStore';
+import { decryptFile } from '@/lib/crypto';
+import { DocumentPreviewModal } from '@/components/DocumentPreviewModal';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCardStore } from '@/store/cardStore';
 import { CardRecord, DocumentAttachment } from '@/types';
@@ -18,6 +21,7 @@ import { FileUploader } from '@/components/FileUploader';
 export default function CardsPage() {
   const navigate = useNavigate();
   const { cards, isLoading, fetchCards, addCard, updateCard, deleteCard, searchCards } = useCardStore();
+  const encryptionKey = useAuthStore((s) => s.encryptionKey);
   
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -25,6 +29,7 @@ export default function CardsPage() {
   const [selectedCard, setSelectedCard] = useState<CardRecord | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSensitiveData, setShowSensitiveData] = useState<Record<string, boolean>>({});
+  const [previewDocument, setPreviewDocument] = useState<DocumentAttachment | null>(null);
   
   const [formData, setFormData] = useState({
     bankName: '',
@@ -171,18 +176,18 @@ export default function CardsPage() {
     <div className="min-h-screen p-4 md:p-8">
       <div className="max-w-6xl mx-auto">
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-          <Button variant="ghost" onClick={() => navigate('/')} className="mb-4 text-white hover:bg-white/10">
+          <Button variant="ghost" onClick={() => navigate('/')} className="mb-4 text-foreground hover:bg-white/10">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Dashboard
           </Button>
           
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
-              <h1 className="text-4xl font-bold text-white mb-2 flex items-center gap-3">
+              <h1 className="text-4xl font-bold text-foreground mb-2 flex items-center gap-3">
                 <CreditCard className="w-10 h-10 text-primary" />
                 Cards
               </h1>
-              <p className="text-gray-400">Manage your credit and debit cards securely</p>
+              <p className="text-muted-foreground">Manage your credit and debit cards securely</p>
             </div>
             
             <Button onClick={() => { resetForm(); setIsAddDialogOpen(true); }} size="lg" className="gap-2">
@@ -194,7 +199,7 @@ export default function CardsPage() {
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mb-6">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <Input placeholder="Search cards..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
           </div>
         </motion.div>
@@ -250,7 +255,7 @@ export default function CardsPage() {
                         <div className="space-y-1">
                           <Label className="text-xs text-gray-500">Card Number</Label>
                           <div className="flex items-center gap-2">
-                            <span className="text-white font-mono">{showSensitiveData[`${card.id}-cardNumber`] ? formatCardNumber(card.cardNumber) : maskCardNumber(card.cardNumber)}</span>
+                            <span className="text-foreground font-mono">{showSensitiveData[`${card.id}-cardNumber`] ? formatCardNumber(card.cardNumber) : maskCardNumber(card.cardNumber)}</span>
                             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => toggleSensitiveData(card.id!, 'cardNumber')}>
                               {showSensitiveData[`${card.id}-cardNumber`] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                             </Button>
@@ -262,13 +267,13 @@ export default function CardsPage() {
 
                         <div className="space-y-1">
                           <Label className="text-xs text-gray-500">Valid Till</Label>
-                          <span className="text-white block">{card.validTill}</span>
+                          <span className="text-foreground block">{card.validTill}</span>
                         </div>
 
                         <div className="space-y-1">
                           <Label className="text-xs text-gray-500">CVV</Label>
                           <div className="flex items-center gap-2">
-                            <span className="text-white font-mono">{maskValue(card.cvv, showSensitiveData[`${card.id}-cvv`])}</span>
+                            <span className="text-foreground font-mono">{maskValue(card.cvv, showSensitiveData[`${card.id}-cvv`])}</span>
                             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => toggleSensitiveData(card.id!, 'cvv')}>
                               {showSensitiveData[`${card.id}-cvv`] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                             </Button>
@@ -282,7 +287,7 @@ export default function CardsPage() {
                           <div className="space-y-1">
                             <Label className="text-xs text-gray-500">PIN</Label>
                             <div className="flex items-center gap-2">
-                              <span className="text-white font-mono">{maskValue(card.pin, showSensitiveData[`${card.id}-pin`])}</span>
+                              <span className="text-foreground font-mono">{maskValue(card.pin, showSensitiveData[`${card.id}-pin`])}</span>
                               <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => toggleSensitiveData(card.id!, 'pin')}>
                                 {showSensitiveData[`${card.id}-pin`] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                               </Button>
@@ -297,7 +302,7 @@ export default function CardsPage() {
                           <div className="space-y-1">
                             <Label className="text-xs text-gray-500">Customer ID</Label>
                             <div className="flex items-center gap-2">
-                              <span className="text-white font-mono">{maskValue(card.customerId, showSensitiveData[`${card.id}-customerId`])}</span>
+                              <span className="text-foreground font-mono">{maskValue(card.customerId, showSensitiveData[`${card.id}-customerId`])}</span>
                               <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => toggleSensitiveData(card.id!, 'customerId')}>
                                 {showSensitiveData[`${card.id}-customerId`] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                               </Button>
@@ -320,6 +325,42 @@ export default function CardsPage() {
                         <span>Created: {formatDate(card.createdAt)}</span>
                         <span>Updated: {formatDate(card.updatedAt)}</span>
                       </div>
+                      {/* Attachments */}
+                      {card.documents && card.documents.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-white/10">
+                          <Label className="text-xs text-gray-500">Attachments</Label>
+                          <div className="flex items-center gap-2 mt-2 flex-wrap">
+                            {card.documents.map((doc) => (
+                              <div key={doc.id} className="bg-gray-100 dark:bg-gray-800 p-2 rounded flex items-center gap-2">
+                                <span className="text-sm text-gray-900 dark:text-gray-100 truncate max-w-[160px]">{doc.name}</span>
+                                <Button variant="ghost" size="icon" onClick={() => setPreviewDocument(doc)}>
+                                  <Eye className="w-4 h-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" onClick={async () => {
+                                  try {
+                                    const encKey = useAuthStore.getState().encryptionKey;
+                                    if (!encKey) throw new Error('No encryption key');
+                                    const blob = await decryptFile(doc.encrypted, encKey, doc.type);
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = doc.name;
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    document.body.removeChild(a);
+                                    URL.revokeObjectURL(url);
+                                  } catch (err) {
+                                    console.error('Download error', err);
+                                    alert('Failed to download attachment');
+                                  }
+                                }}>
+                                  <Download className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 </motion.div>
@@ -330,7 +371,7 @@ export default function CardsPage() {
 
         {/* Add Dialog */}
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-card text-card-foreground rounded-lg shadow-lg">
             <DialogHeader>
               <DialogTitle>Add Card</DialogTitle>
               <DialogDescription>Enter your card details. All sensitive data will be encrypted.</DialogDescription>
@@ -400,7 +441,7 @@ export default function CardsPage() {
 
         {/* Edit Dialog - Similar to Add */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-card text-card-foreground rounded-lg shadow-lg">
             <DialogHeader>
               <DialogTitle>Edit Card</DialogTitle>
               <DialogDescription>Update your card details.</DialogDescription>
@@ -427,12 +468,20 @@ export default function CardsPage() {
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="edit-cardNumber">Card Number *</Label>
-                <Input id="edit-cardNumber" value={formData.cardNumber} onChange={(e) => setFormData({ ...formData, cardNumber: e.target.value })} placeholder="1234 5678 9012 3456" />
+                <div className="flex items-center gap-2">
+                  <Input id="edit-cardNumber" value={formData.cardNumber} onChange={(e) => setFormData({ ...formData, cardNumber: e.target.value })} placeholder="1234 5678 9012 3456" type={showSensitiveData[`${selectedCard?.id}-cardNumber`] ? 'text' : 'password'} />
+                  <Button variant="ghost" size="icon" onClick={() => toggleSensitiveData(selectedCard?.id ?? '', 'cardNumber')}>
+                    {showSensitiveData[`${selectedCard?.id}-cardNumber`] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                  </Button>
+                </div>
               </div>
               <div className="grid md:grid-cols-3 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="edit-cvv">CVV *</Label>
                   <Input id="edit-cvv" value={formData.cvv} onChange={(e) => setFormData({ ...formData, cvv: e.target.value })} placeholder="123" maxLength={4} />
+                  <Button variant="ghost" size="icon" onClick={() => toggleSensitiveData(selectedCard?.id ?? '', 'cvv')}>
+                    {showSensitiveData[`${selectedCard?.id}-cvv`] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                  </Button>
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="edit-validTill">Valid Till *</Label>
@@ -441,11 +490,19 @@ export default function CardsPage() {
                 <div className="grid gap-2">
                   <Label htmlFor="edit-pin">PIN</Label>
                   <Input id="edit-pin" value={formData.pin} onChange={(e) => setFormData({ ...formData, pin: e.target.value })} placeholder="4-digit PIN" maxLength={6} />
+                  <Button variant="ghost" size="icon" onClick={() => toggleSensitiveData(selectedCard?.id ?? '', 'pin')}>
+                    {showSensitiveData[`${selectedCard?.id}-pin`] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                  </Button>
                 </div>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="edit-customerId">Customer ID</Label>
-                <Input id="edit-customerId" value={formData.customerId} onChange={(e) => setFormData({ ...formData, customerId: e.target.value })} placeholder="Customer identification number" />
+                  <div className="flex items-center gap-2">
+                    <Input id="edit-customerId" value={formData.customerId} onChange={(e) => setFormData({ ...formData, customerId: e.target.value })} placeholder="Customer identification number" type={showSensitiveData[`${selectedCard?.id}-customerId`] ? 'text' : 'password'} />
+                    <Button variant="ghost" size="icon" onClick={() => toggleSensitiveData(selectedCard?.id ?? '', 'customerId')}>
+                      {showSensitiveData[`${selectedCard?.id}-customerId`] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                    </Button>
+                  </div>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="edit-notes">Notes</Label>
@@ -470,7 +527,7 @@ export default function CardsPage() {
 
         {/* Delete Dialog */}
         <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-          <DialogContent>
+          <DialogContent className="bg-card text-card-foreground rounded-lg shadow-lg">
             <DialogHeader>
               <DialogTitle>Delete Card</DialogTitle>
               <DialogDescription>Are you sure you want to delete this card? This action cannot be undone.</DialogDescription>
@@ -481,6 +538,13 @@ export default function CardsPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <DocumentPreviewModal
+          document={previewDocument}
+          isOpen={!!previewDocument}
+          onClose={() => setPreviewDocument(null)}
+          encryptionKey={encryptionKey}
+        />
       </div>
     </div>
   );

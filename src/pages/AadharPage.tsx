@@ -7,13 +7,16 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, Plus, Search, Eye, EyeOff, Copy, Edit2, Trash2, Fingerprint } from 'lucide-react';
+import { ArrowLeft, Plus, Search, Eye, EyeOff, Copy, Edit2, Trash2, Fingerprint, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAadharStore } from '@/store/aadharStore';
 import { AadharRecord, DocumentAttachment } from '@/types';
 import { toast } from '@/components/ui/use-toast';
 import { formatDate, maskCardNumber } from '@/lib/utils';
 import { FileUploader } from '@/components/FileUploader';
+import { useAuthStore } from '@/store/authStore';
+import { decryptFile } from '@/lib/crypto';
+import { DocumentPreviewModal } from '@/components/DocumentPreviewModal';
 
 export default function AadharPage() {
   const navigate = useNavigate();
@@ -24,6 +27,8 @@ export default function AadharPage() {
   const [selectedAadhar, setSelectedAadhar] = useState<AadharRecord | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSensitiveData, setShowSensitiveData] = useState<Record<string, boolean>>({});
+  const [previewDocument, setPreviewDocument] = useState<DocumentAttachment | null>(null);
+  const encryptionKey = useAuthStore((s) => s.encryptionKey);
   const [formData, setFormData] = useState({
     aadharNumber: '', name: '', dateOfBirth: '', address: '', enrollmentNumber: '', vid: '', notes: '', documents: [] as DocumentAttachment[],
   });
@@ -119,8 +124,43 @@ export default function AadharPage() {
                         {aadhar.enrollmentNumber && <div className="space-y-1"><Label className="text-xs text-gray-500">Enrollment Number</Label><div className="flex items-center gap-2"><span className="text-white font-mono text-sm">{maskValue(aadhar.enrollmentNumber, showSensitiveData[`${aadhar.id}-enrollmentNumber`])}</span><Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => toggleSensitiveData(aadhar.id!, 'enrollmentNumber')}>{showSensitiveData[`${aadhar.id}-enrollmentNumber`] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}</Button><Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(aadhar.enrollmentNumber, 'Enrollment number')}><Copy className="w-3 h-3" /></Button></div></div>}
                         {aadhar.vid && <div className="space-y-1"><Label className="text-xs text-gray-500">VID</Label><div className="flex items-center gap-2"><span className="text-white font-mono text-sm">{maskValue(aadhar.vid, showSensitiveData[`${aadhar.id}-vid`])}</span><Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => toggleSensitiveData(aadhar.id!, 'vid')}>{showSensitiveData[`${aadhar.id}-vid`] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}</Button><Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(aadhar.vid, 'VID')}><Copy className="w-3 h-3" /></Button></div></div>}
                       </div>
-                      {aadhar.notes && <div className="space-y-1 mt-2 pt-2 border-t border-white/10"><Label className="text-xs text-gray-500">Notes</Label><p className="text-sm text-gray-300">{aadhar.notes}</p></div>}
-                      <div className="text-xs text-gray-500 flex gap-4"><span>Created: {formatDate(aadhar.createdAt)}</span><span>Updated: {formatDate(aadhar.updatedAt)}</span></div>
+                      {aadhar.notes && <div className="space-y-1 mt-2 pt-2 border-t border-border"><Label className="text-xs text-muted-foreground">Notes</Label><p className="text-sm text-muted-foreground">{aadhar.notes}</p></div>}
+                      <div className="text-xs text-muted-foreground flex gap-4"><span>Created: {formatDate(aadhar.createdAt)}</span><span>Updated: {formatDate(aadhar.updatedAt)}</span></div>
+                      {aadhar.documents && aadhar.documents.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-border">
+                          <Label className="text-xs text-muted-foreground">Attachments</Label>
+                          <div className="flex items-center gap-2 mt-2 flex-wrap">
+                            {aadhar.documents.map((doc) => (
+                              <div key={doc.id} className="bg-card p-2 rounded flex items-center gap-2 border border-border">
+                                <span className="text-sm text-foreground truncate max-w-[160px]">{doc.name}</span>
+                                <Button variant="ghost" size="icon" onClick={() => setPreviewDocument(doc)}>
+                                  <Eye className="w-4 h-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" onClick={async () => {
+                                  try {
+                                    const encKey = useAuthStore.getState().encryptionKey;
+                                    if (!encKey) throw new Error('No encryption key');
+                                    const blob = await decryptFile(doc.encrypted, encKey, doc.type);
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = doc.name;
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    document.body.removeChild(a);
+                                    URL.revokeObjectURL(url);
+                                  } catch (err) {
+                                    console.error('Download error', err);
+                                    alert('Failed to download attachment');
+                                  }
+                                }}>
+                                  <Download className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 </motion.div>
@@ -186,6 +226,13 @@ export default function AadharPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <DocumentPreviewModal
+          document={previewDocument}
+          isOpen={!!previewDocument}
+          onClose={() => setPreviewDocument(null)}
+          encryptionKey={encryptionKey}
+        />
       </div>
     </div>
   );

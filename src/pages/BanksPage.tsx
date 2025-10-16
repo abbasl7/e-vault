@@ -6,17 +6,21 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, Plus, Search, Eye, EyeOff, Copy, Edit2, Trash2, Building2 } from 'lucide-react';
+import { ArrowLeft, Plus, Search, Eye, EyeOff, Copy, Edit2, Trash2, Building2, Download } from 'lucide-react';
+import { useAuthStore } from '@/store/authStore';
+import { decryptFile } from '@/lib/crypto';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useBankStore } from '@/store/bankStore';
 import { BankRecord, DocumentAttachment } from '@/types';
 import { toast } from '@/components/ui/use-toast';
 import { formatDate, maskCardNumber } from '@/lib/utils';
 import { FileUploader } from '@/components/FileUploader';
+import { DocumentPreviewModal } from '@/components/DocumentPreviewModal';
 
 export default function BanksPage() {
   const navigate = useNavigate();
   const { banks, isLoading, fetchBanks, addBank, updateBank, deleteBank, searchBanks } = useBankStore();
+  const encryptionKey = useAuthStore((s) => s.encryptionKey);
   
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -24,6 +28,7 @@ export default function BanksPage() {
   const [selectedBank, setSelectedBank] = useState<BankRecord | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSensitiveData, setShowSensitiveData] = useState<Record<string, boolean>>({});
+  const [previewDocument, setPreviewDocument] = useState<DocumentAttachment | null>(null);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -179,7 +184,7 @@ export default function BanksPage() {
           <Button
             variant="ghost"
             onClick={() => navigate('/')}
-            className="mb-4 text-white hover:bg-white/10"
+            className="mb-4 text-foreground hover:bg-white/10"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Dashboard
@@ -187,11 +192,11 @@ export default function BanksPage() {
           
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
-              <h1 className="text-4xl font-bold text-white mb-2 flex items-center gap-3">
+              <h1 className="text-4xl font-bold text-foreground mb-2 flex items-center gap-3">
                 <Building2 className="w-10 h-10 text-primary" />
                 Banks
               </h1>
-              <p className="text-gray-400">Manage your bank account details securely</p>
+              <p className="text-muted-foreground">Manage your bank account details securely</p>
             </div>
             
             <Button
@@ -216,7 +221,7 @@ export default function BanksPage() {
           className="mb-6"
         >
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <Input
               placeholder="Search banks..."
               value={searchQuery}
@@ -310,7 +315,7 @@ export default function BanksPage() {
                         <div className="space-y-1">
                           <Label className="text-xs text-gray-500">Account Number</Label>
                           <div className="flex items-center gap-2">
-                            <span className="text-white font-mono">
+                            <span className="text-foreground font-mono">
                               {maskValue(bank.accountNo, showSensitiveData[`${bank.id}-accountNo`])}
                             </span>
                             <Button
@@ -340,7 +345,7 @@ export default function BanksPage() {
                         <div className="space-y-1">
                           <Label className="text-xs text-gray-500">IFSC Code</Label>
                           <div className="flex items-center gap-2">
-                            <span className="text-white font-mono">{bank.ifsc}</span>
+                            <span className="text-foreground font-mono">{bank.ifsc}</span>
                             <Button
                               variant="ghost"
                               size="icon"
@@ -357,7 +362,7 @@ export default function BanksPage() {
                           <div className="space-y-1">
                             <Label className="text-xs text-gray-500">CIF Number</Label>
                             <div className="flex items-center gap-2">
-                              <span className="text-white font-mono">
+                              <span className="text-foreground font-mono">
                                 {maskValue(bank.cifNo, showSensitiveData[`${bank.id}-cifNo`])}
                               </span>
                               <Button
@@ -389,7 +394,7 @@ export default function BanksPage() {
                           <div className="space-y-1">
                             <Label className="text-xs text-gray-500">Username</Label>
                             <div className="flex items-center gap-2">
-                              <span className="text-white">{bank.username}</span>
+                              <span className="text-foreground">{bank.username}</span>
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -407,7 +412,7 @@ export default function BanksPage() {
                           <div className="space-y-1">
                             <Label className="text-xs text-gray-500">MPIN</Label>
                             <div className="flex items-center gap-2">
-                              <span className="text-white font-mono">
+                              <span className="text-foreground font-mono">
                                 {maskValue(bank.mPin, showSensitiveData[`${bank.id}-mPin`])}
                               </span>
                               <Button
@@ -439,7 +444,7 @@ export default function BanksPage() {
                           <div className="space-y-1">
                             <Label className="text-xs text-gray-500">TPIN</Label>
                             <div className="flex items-center gap-2">
-                              <span className="text-white font-mono">
+                              <span className="text-foreground font-mono">
                                 {maskValue(bank.tPin, showSensitiveData[`${bank.id}-tPin`])}
                               </span>
                               <Button
@@ -480,6 +485,42 @@ export default function BanksPage() {
                         <span>Created: {formatDate(bank.createdAt)}</span>
                         <span>Updated: {formatDate(bank.updatedAt)}</span>
                       </div>
+                      {/* Attachments */}
+                      {bank.documents && bank.documents.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-white/10">
+                          <Label className="text-xs text-gray-500">Attachments</Label>
+                          <div className="flex items-center gap-2 mt-2 flex-wrap">
+                            {bank.documents.map((doc) => (
+                              <div key={doc.id} className="bg-gray-100 dark:bg-gray-800 p-2 rounded flex items-center gap-2">
+                                <span className="text-sm text-gray-900 dark:text-gray-100 truncate max-w-[160px]">{doc.name}</span>
+                                <Button variant="ghost" size="icon" onClick={() => setPreviewDocument(doc)}>
+                                  <Eye className="w-4 h-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" onClick={async () => {
+                                  try {
+                                    const encKey = useAuthStore.getState().encryptionKey;
+                                    if (!encKey) throw new Error('No encryption key');
+                                    const blob = await decryptFile(doc.encrypted, encKey, doc.type);
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = doc.name;
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    document.body.removeChild(a);
+                                    URL.revokeObjectURL(url);
+                                  } catch (err) {
+                                    console.error('Download error', err);
+                                    alert('Failed to download attachment');
+                                  }
+                                }}>
+                                  <Download className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 </motion.div>
@@ -490,7 +531,7 @@ export default function BanksPage() {
 
         {/* Add Dialog */}
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-card text-card-foreground rounded-lg shadow-lg">
             <DialogHeader>
               <DialogTitle>Add Bank Account</DialogTitle>
               <DialogDescription>
@@ -636,7 +677,7 @@ export default function BanksPage() {
 
         {/* Edit Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-card text-card-foreground rounded-lg shadow-lg">
             <DialogHeader>
               <DialogTitle>Edit Bank Account</DialogTitle>
               <DialogDescription>
@@ -676,12 +717,18 @@ export default function BanksPage() {
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="edit-accountNo">Account Number *</Label>
-                <Input
-                  id="edit-accountNo"
-                  value={formData.accountNo}
-                  onChange={(e) => setFormData({ ...formData, accountNo: e.target.value })}
-                  placeholder="Your account number"
-                />
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="edit-accountNo"
+                    value={formData.accountNo}
+                    onChange={(e) => setFormData({ ...formData, accountNo: e.target.value })}
+                    placeholder="Your account number"
+                    type={showSensitiveData[`${selectedBank?.id}-accountNo`] ? 'text' : 'password'}
+                  />
+                  <Button variant="ghost" size="icon" onClick={() => toggleSensitiveData(selectedBank?.id ?? '', 'accountNo')}>
+                    {showSensitiveData[`${selectedBank?.id}-accountNo`] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                  </Button>
+                </div>
               </div>
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="grid gap-2">
@@ -691,7 +738,11 @@ export default function BanksPage() {
                     value={formData.cifNo}
                     onChange={(e) => setFormData({ ...formData, cifNo: e.target.value })}
                     placeholder="Customer ID"
+                    type={showSensitiveData[`${selectedBank?.id}-cifNo`] ? 'text' : 'password'}
                   />
+                  <Button variant="ghost" size="icon" onClick={() => toggleSensitiveData(selectedBank?.id ?? '', 'cifNo')}>
+                    {showSensitiveData[`${selectedBank?.id}-cifNo`] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                  </Button>
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="edit-username">Username</Label>
@@ -711,7 +762,11 @@ export default function BanksPage() {
                     value={formData.mPin}
                     onChange={(e) => setFormData({ ...formData, mPin: e.target.value })}
                     placeholder="Mobile PIN"
+                     type={showSensitiveData[`${selectedBank?.id}-mPin`] ? 'text' : 'password'}
                   />
+                   <Button variant="ghost" size="icon" onClick={() => toggleSensitiveData(selectedBank?.id ?? '', 'mPin')}>
+                     {showSensitiveData[`${selectedBank?.id}-mPin`] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                   </Button>
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="edit-tPin">TPIN</Label>
@@ -720,7 +775,11 @@ export default function BanksPage() {
                     value={formData.tPin}
                     onChange={(e) => setFormData({ ...formData, tPin: e.target.value })}
                     placeholder="Transaction PIN"
+                    type={showSensitiveData[`${selectedBank?.id}-tPin`] ? 'text' : 'password'}
                   />
+                  <Button variant="ghost" size="icon" onClick={() => toggleSensitiveData(selectedBank?.id ?? '', 'tPin')}>
+                    {showSensitiveData[`${selectedBank?.id}-tPin`] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                  </Button>
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="edit-profilePrivy">Profile Password</Label>
@@ -777,7 +836,7 @@ export default function BanksPage() {
 
         {/* Delete Confirmation Dialog */}
         <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-          <DialogContent>
+          <DialogContent className="bg-card text-card-foreground rounded-lg shadow-lg">
             <DialogHeader>
               <DialogTitle>Delete Bank Account</DialogTitle>
               <DialogDescription>
@@ -794,6 +853,14 @@ export default function BanksPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Document Preview Modal */}
+        <DocumentPreviewModal
+          document={previewDocument}
+          isOpen={!!previewDocument}
+          onClose={() => setPreviewDocument(null)}
+          encryptionKey={encryptionKey}
+        />
       </div>
     </div>
   );
